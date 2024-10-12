@@ -2,22 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Proveedor; 
 use App\Http\Requests\ProveedorRequest;
+use App\Services\ProveedorService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Exception;
 
-
-
-
-
 class ProveedorController extends Controller
 {
-        
+    protected $proveedorService;
+
+    public function __construct(ProveedorService $proveedorService)
+    {
+        $this->proveedorService = $proveedorService;
+    }
+
     public function index()
     {
-        $proveedores = Proveedor::where('status_prov', 1)->get();
+        $proveedores = $this->proveedorService->getAllActiveProveedores();
         
         return response()->json([
             'status' => 'success',
@@ -28,7 +29,7 @@ class ProveedorController extends Controller
     public function store(ProveedorRequest $request)
     {
         try {
-            $proveedor = Proveedor::create($request->validated());
+            $proveedor = $this->proveedorService->createProveedor($request->validated());
 
             return response()->json([
                 'status' => 'success',
@@ -42,11 +43,10 @@ class ProveedorController extends Controller
         }
     }
 
-
     public function show(string $id_prov)
     {
         try {
-            $proveedor = $this->findProveedor($id_prov);
+            $proveedor = $this->proveedorService->findProveedor($id_prov);
             
             return response()->json([
                 'status' => 'success',
@@ -63,12 +63,12 @@ class ProveedorController extends Controller
     public function update(ProveedorRequest $request, string $id_prov)
     {
         try {
-            $proveedor = $this->findProveedor($id_prov);
-            $proveedor->update($request->validated());
+            $proveedor = $this->proveedorService->findProveedor($id_prov);
+            $updatedProveedor = $this->proveedorService->updateProveedor($proveedor, $request->validated());
 
             return response()->json([
                 'status' => 'success',
-                'data' => $proveedor
+                'data' => $updatedProveedor
             ], 200);
         } catch (ModelNotFoundException $e) {
             return response()->json([
@@ -83,13 +83,11 @@ class ProveedorController extends Controller
         }
     }
 
- 
     public function destroy(string $id_prov)
     {
         try {
-            $proveedor = Proveedor::where('id_prov', $id_prov)->firstOrFail();
-            $proveedor->status_prov = 0; 
-            $proveedor->save();
+            $proveedor = $this->proveedorService->findProveedor($id_prov);
+            $this->proveedorService->inactivateProveedor($proveedor);
 
             return response()->json([
                 'status' => 'success',
@@ -101,13 +99,5 @@ class ProveedorController extends Controller
                 'message' => 'Proveedor no encontrado.'
             ], 404);
         }
-    }
-
-  
-    private function findProveedor(string $id_prov)
-    {
-        return Proveedor::where('id_prov', $id_prov)
-                        ->where('status_prov', 1)
-                        ->firstOrFail();
     }
 }
